@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Transform: AWS::Serverless-2016-10-31
+
+Description: AWS serverless application to reprocess messages from the DLQ
+
+Resources:
+  RequeuerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${StackQualifier}-${RepoName}-SchemaManagerFn
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      CodeUri: src
+      Role: !Ref FunctionRole
+      Timeout: 30
+
+  FunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
