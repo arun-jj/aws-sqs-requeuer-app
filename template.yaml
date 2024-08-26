@@ -7,15 +7,17 @@ Description: AWS serverless application to reprocess messages from the DLQ
 Metadata:
   AWS::ServerlessRepo::Application:
     Name: DLQRequeuerApp
-    Description: Enable reprocessing of DLQ message by resubmitting the messages to the origin source
+    Description: Enable reprocessing of DLQ message by resubmitting the messages to target SQS
     Author: 'Jude Jesuthasan'
     ReadmeUrl: README.md
     SpdxLicenseId: GPL-3.0-only
     Labels:
       - DLQ
-    HomePageUrl: https://github.com/jjesuthasan/aws-sqs-requeuer-app
+      - SQS
+      - Lambda
+    HomePageUrl: https://github.com/arun-jj/aws-sqs-requeuer-app
     SemanticVersion: 1.0.0
-    SourceCodeUrl: https://github.com/jjesuthasan/aws-sqs-requeuer-app
+    SourceCodeUrl: https://github.com/arun-jj/aws-sqs-requeuer-app
 
 Parameters:
   FunctionName:
@@ -81,7 +83,7 @@ Resources:
       Timeout: !Ref LambdaTimeout
       Environment:
         Variables:
-          TARGET_SQS_NAME: !Ref TargetName
+          TARGET_SQS_NAME: !Ref TargetSQSName
           MAX_RETRIES: !Ref MaximumRetries
           ACCOUNT_ID: !Ref AWS::AccountId
           DELAY_BASE: !Ref DelaySecondsBase
@@ -104,7 +106,7 @@ Resources:
               - kms:Decrypt
               - kms:GenerateDataKey
               Resource:
-                Ref: kmsKeyArn
+                Ref: DLQKmsMasterKeyId
           - Ref: AWS::NoValue
 
   RequeuerDLQ:
