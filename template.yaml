@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Transform: AWS::Serverless-2016-10-31
+
+Description: AWS serverless application to reprocess messages from the DLQ
+
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: DLQRequeuerApp
+    Description: Enable reprocessing of DLQ message by resubmitting the messages to the origin source
+    Author: 'Jude Jesuthasan'
+    ReadmeUrl: README.md
+    SpdxLicenseId: GPL-3.0-only
+    Labels:
+      - DLQ
+    HomePageUrl: https://github.com/jjesuthasan/aws-sqs-requeuer-app
+    SemanticVersion: 1.0.0
+    SourceCodeUrl: https://github.com/jjesuthasan/aws-sqs-requeuer-app
+
+Parameters:
+  FunctionName:
+    Description: The requeuer lambda function name
+    Type: String
+    Default: ''
+
+  DLQName:
+    Description: The dlq name
+    Type: String
+
+  DLQKmsMasterKeyId:
+    Description: The KMS key id used for encryption of DLQ messages at rest
+    Type: String
+    Default: ''
+
+  DLQKmsDataKeyReusePeriodSeconds:
+    Description: The length of time in seconds for which the DLQ can reuse a data key to encrypt or decrypt messages
+    Type: Number
+    Default: 86400
+
+  LambdaTimeout:
+    Description: Maximum Lambda invocation runtime in seconds
+    Default: 30
+    Type: Number
+
+  TargetSQSName:
+    Description: The target SQS name where to resubmit the message to
+    Type: String
+
+  MaximumRetries:
+    Description: Maximum attempts at processing the message before deleting the message from the DLQ
+    Type: Number
+    Default: 3
+
+  DelaySecondsBase:
+    Description: The minimum delay in seconds the message will remain invisible in the target SQS
+    Type: Number
+    Default: 300
+
+  DelaySecondsCap:
+    Description: The maximum delay in seconds the message will remain invisible in the target SQS
+    Type: Number
+    Default: 900
+
+  DelayStepSize:
+    Description: The number of seconds to add to the previous re-attempt's delay seconds
+    Type: Number
+    Default: 300
+
+Conditions:
+  HasKMSKeyId: !Not [!Equals [!Ref DLQKmsMasterKeyId, ""]]
+  HasFunctionName: !Equals [!Ref FunctionName, ""]
+
+Resources:
+  RequeuerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !If [HasFunctionName, !Ref FunctionName, !Ref AWS::NoValue]
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      CodeUri: src
+      Timeout: !Ref LambdaTimeout
+      Environment:
+        Variables:
+          TARGET_SQS_NAME: !Ref TargetName
+          MAX_RETRIES: !Ref MaximumRetries
+          ACCOUNT_ID: !Ref AWS::AccountId
+          DELAY_BASE: !Ref DelaySecondsBase
+          DELAY_CAP: !Ref DelaySecondsCap
+          DELAY_STEP: !Ref DelayStepSize
+      Events:
+        DLQEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt RequeuerDLQ.Arn
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !Ref TargetSQSName
+        - Fn::If:
+          - HasKMSKeyId
+          - Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey
+              Resource:
+                Ref: kmsKeyArn
+          - Ref: AWS::NoValue
+
+  RequeuerDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref DLQName
+      KmsMasterKeyId: !If [HasKMSKeyId, !Ref DLQKmsMasterKeyId, !Ref AWS::NoValue]
+      KmsDataKeyReusePeriodSeconds: !If [HasKMSKeyId, !Ref DLQKmsDataKeyReusePeriodSeconds, !Ref AWS::NoValue]
+      VisibilityTimeout: !Ref LambdaTimeout
