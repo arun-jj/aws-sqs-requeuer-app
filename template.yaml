@@ -70,7 +70,7 @@ Parameters:
 
 Conditions:
   HasKMSKeyId: !Not [!Equals [!Ref DLQKmsMasterKeyId, ""]]
-  HasFunctionName: !Equals [!Ref FunctionName, ""]
+  HasFunctionName: !Not [!Equals [!Ref FunctionName, ""]]
 
 Resources:
   RequeuerFunction:
