@@ -8,11 +8,11 @@ AWS_REGION = os.environ["AWS_REGION"]
 AWS_ACCOUNT_ID = os.environ["ACCOUNT_ID"]
 TARGET_SQS_NAME = os.environ["TARGET_SQS_NAME"]
 
-DELAY_BASE = os.environ["DELAY_BASE"]
-DELAY_CAP = os.environ["DELAY_CAP"]
-DELAY_STEP = os.environ["DELAY_STEP"]
+DELAY_BASE = int(os.environ["DELAY_BASE"])
+DELAY_CAP = int(os.environ["DELAY_CAP"])
+DELAY_STEP = int(os.environ["DELAY_STEP"])
 
-MAX_RETRIES = os.environ["MAX_RETRIES"]
+MAX_RETRIES = int(os.environ["MAX_RETRIES"])
 
 TARGET_SQS_URL = f"https://sqs.{AWS_REGION}.amazonaws.com/{AWS_ACCOUNT_ID}/{TARGET_SQS_NAME}"
 
@@ -43,7 +43,7 @@ def lambda_handler(event, context):
 
         SQS_CLIENT.send_message(
             QueueUrl=TARGET_SQS_URL,
-            MessageBody=json.loads(record["body"]),
+            MessageBody=record["body"],
             DelaySeconds=min(delay_seconds, 900),
             MessageAttributes=record["messageAttributes"],
         )
